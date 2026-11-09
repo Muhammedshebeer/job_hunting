@@ -1,0 +1,4 @@
+Django>=5.2,<6
+psycopg[binary]>=3.2
+python-dotenv>=1.0
+PyMuPDF>=1.25
