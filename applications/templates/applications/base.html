@@ -1,0 +1,13 @@
+{% load static %}<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}UAE Job Agent{% endblock %}</title>
+<link rel="stylesheet" href="{% static 'applications/dashboard.css' %}">
+<script src="{% static 'applications/dashboard.js' %}" defer></script></head>
+<body><a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar"><a class="brand" href="{% url 'dashboard' %}"><span class="brand-mark">U</span> UAE Job Agent</a>
+<nav aria-label="Main navigation"><a href="{% url 'dashboard' %}">Job workspace</a>{% if user.is_staff %}<a href="/admin/">Admin</a>{% endif %}
+{% if user.is_authenticated %}<form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="nav-button" type="submit">Sign out</button></form>{% endif %}</nav></header>
+<main id="main" class="workspace">
+{% for message in messages %}<div class="notice {{ message.tags }}" role="status">{{ message }}</div>{% endfor %}
+{% block content %}{% endblock %}
+</main><footer class="footer">Local preparation workspace <span>Human approval required. No automatic submissions.</span></footer></body></html>

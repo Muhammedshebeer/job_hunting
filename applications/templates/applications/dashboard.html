@@ -1,0 +1,30 @@
+{% extends 'applications/base.html' %}{% block content %}
+<div class="page-heading"><div><p class="eyebrow">DISCOVER · PREPARE · REVIEW</p><h1>Your next role,<br><span>with every detail checked.</span></h1>
+<p class="subtitle">A focused workspace for UAE developer opportunities. Review the evidence before moving forward.</p></div>
+<div class="workspace-status"><span class="status-dot"></span> Preparation mode <p>No automatic submissions</p></div></div>
+{% if not profile %}<div class="notice warning">No active candidate profile is available. <a href="/admin/profiles/candidateprofile/">Set up your existing profile in admin</a> to calculate relevance and prepare drafts.</div>{% endif %}
+<section class="metrics" aria-label="Job summary">
+<div><span>Discovered jobs</span><strong>{{ counts.all }}</strong><small>In this view</small></div>
+<div><span>Eligible</span><strong>{{ counts.eligible }}</strong><small>All checks passed</small></div>
+<div><span>Needs review</span><strong>{{ counts.needs_review }}</strong><small>Evidence to verify</small></div>
+<div><span>Already applied</span><strong>{{ counts.already_applied }}</strong><small>Recorded submissions</small></div></section>
+{% include 'applications/discovery_history.html' %}
+{% include 'applications/ready_to_apply.html' %}
+{% include 'applications/automation.html' %}
+<section class="panel"><div class="section-heading"><div><p class="eyebrow">OPPORTUNITIES</p><h2>Discovered vacancies</h2></div><span class="quiet">{{ page.paginator.count }} result{{ page.paginator.count|pluralize }}</span></div>
+<form method="get" class="filters" aria-label="Filter jobs">
+<label class="search">Search<input type="search" name="q" value="{{ query }}" placeholder="Company or job title"></label>
+<label>Qualification<select name="status"><option value="all" {% if selected == 'all' %}selected{% endif %}>All jobs</option><option value="eligible" {% if selected == 'eligible' %}selected{% endif %}>Eligible</option><option value="needs_review" {% if selected == 'needs_review' %}selected{% endif %}>Needs review</option><option value="rejected" {% if selected == 'rejected' %}selected{% endif %}>Rejected</option><option value="already_applied" {% if selected == 'already_applied' %}selected{% endif %}>Already applied</option></select></label>
+<label>Source<select name="source"><option value="">All sources</option>{% for item in sources %}<option value="{{ item }}" {% if source == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+<label>Candidate<select name="profile">{% for item in profiles %}<option value="{{ item.pk }}" {% if profile.pk == item.pk %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></label><button class="button primary" type="submit">Apply filters</button><a class="quiet" href="{% url 'dashboard' %}">Reset</a></form>
+<div class="job-table" role="list">
+{% for row in page %}<article class="job-row" role="listitem"><div class="job-main"><span class="company">{{ row.job.company|default:'Company unverified' }}</span><h3><a href="{% url 'job_detail' row.job.pk %}{% if profile %}?profile={{ profile.pk }}{% endif %}">{{ row.job.title|default:'Title unverified' }}</a></h3><p>{{ row.job.location|default:'Location unverified' }}</p><span class="source-label">{{ row.job.source }}</span></div>
+<div class="date-cell"><small>Published</small><strong>{{ row.job.posted_at|date:'d M Y'|default:'Unverified' }}</strong><span class="quiet">{{ row.job.posted_at|date:'H:i T' }}</span></div>
+<div class="score-cell"><small>CV relevance</small><strong>{{ row.assessment.score }}<span>%</span></strong><div class="score-track" aria-hidden="true"><span style="width:{{ row.assessment.score }}%"></span></div></div>
+<div class="qualification"><span class="badge {{ row.status }}">{% if row.status == 'eligible' %}Eligible{% elif row.status == 'needs_review' %}Needs review{% elif row.status == 'already_applied' %}Already applied{% else %}Rejected{% endif %}</span>
+{% if row.assessment.reasons %}<p>{{ row.assessment.reasons.0 }}</p>{% else %}<p>Ready for draft preparation.</p>{% endif %}
+{% if row.application %}<a class="text-link" href="{% url 'application_detail' row.application.pk %}">Draft: {{ row.application.get_status_display }} →</a>{% else %}<a class="text-link" href="{% url 'job_detail' row.job.pk %}{% if profile %}?profile={{ profile.pk }}{% endif %}">{% if row.status == 'eligible' %}Apply / Review vacancy{% else %}Review vacancy{% endif %} →</a>{% endif %}</div></article>
+{% empty %}<div class="empty"><div class="empty-mark">↗</div><h3>No vacancies in this view</h3><p>Try another filter or run authorized discovery. Missing evidence and older postings remain visible under review or rejected.</p><a class="button" href="{% url 'dashboard' %}">View all jobs</a></div>{% endfor %}</div>
+{% if page.has_other_pages %}<nav class="pagination" aria-label="Results pages">{% if page.has_previous %}<a href="?q={{ query|urlencode }}&amp;status={{ selected }}&amp;source={{ source|urlencode }}&amp;profile={{ profile.pk }}&amp;page={{ page.previous_page_number }}">← Previous</a>{% endif %}<span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?q={{ query|urlencode }}&amp;status={{ selected }}&amp;source={{ source|urlencode }}&amp;profile={{ profile.pk }}&amp;page={{ page.next_page_number }}">Next →</a>{% endif %}</nav>{% endif %}</section>
+<p class="fine-print">CV relevance is weighted skill overlap, not an AI probability. Eligibility is rechecked against the selected candidate and the current {{ qualification_policy.publication_window_days }}-day window.</p>
+{% endblock %}

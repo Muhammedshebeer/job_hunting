@@ -1,0 +1,24 @@
+[
+  {
+    "name": "company_greenhouse",
+    "adapter": "greenhouse",
+    "enabled": false,
+    "authorized": false,
+    "authorization_reference": "https://docs.greenhouse.io/job-board",
+    "board": "REPLACE_WITH_EMPLOYER_BOARD",
+    "company": "REPLACE_WITH_EMPLOYER_NAME"
+  },
+  {
+    "name": "company_ashby",
+    "adapter": "ashby",
+    "enabled": false,
+    "authorized": false,
+    "authorization_reference": "https://developers.ashbyhq.com/docs/public-job-posting-api",
+    "board": "REPLACE_WITH_EMPLOYER_BOARD",
+    "company": "REPLACE_WITH_EMPLOYER_NAME"
+  },
+  {"name": "linkedin", "adapter": "authorized_json", "enabled": false, "authorized": false},
+  {"name": "indeed", "adapter": "authorized_json", "enabled": false, "authorized": false},
+  {"name": "naukrigulf", "adapter": "authorized_json", "enabled": false, "authorized": false},
+  {"name": "bayt", "adapter": "authorized_json", "enabled": false, "authorized": false}
+]

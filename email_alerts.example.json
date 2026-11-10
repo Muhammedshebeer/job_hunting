@@ -1,0 +1,11 @@
+{
+  "authorized": false,
+  "username": "YOUR_GMAIL_ADDRESS",
+  "host": "imap.gmail.com",
+  "folder": "UAEJobAlerts",
+  "credential_service": "uae-job-agent-imap",
+  "trusted_authserv_id": "mx.google.com",
+  "lookback_days": 14,
+  "max_messages": 100,
+  "senders": {"linkedin": [], "indeed": [], "naukrigulf": [], "bayt": []}
+}

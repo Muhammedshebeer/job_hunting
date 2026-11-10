@@ -1,0 +1,3 @@
+source,source_id,url,company,title,location,posted_at,min_experience,max_experience,description,description_complete,accepting_applications,employer_domain,employer_job_id
+linkedin,,https://www.linkedin.com/jobs/view/1234567890/,,,,,,,,,,,
+indeed,,https://www.indeed.com/viewjob?jk=abc123456def,,,,,,,,,,,

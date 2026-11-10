@@ -1,6 +1,6 @@
 # UAE Job Agent — safe local Django starter
 
-This is a **runnable starter**, not a fully connected auto-apply service. It supports CSV imports from authorized sources, CV parsing, deterministic skill scoring, seven-day filtering, a 20-attempt daily reservation cap, duplicate protection, Django admin review, and confirmation records. It **does not** scrape job boards or submit to external websites. Implement source-specific adapters only where authorized.
+This is a **runnable starter**, not a fully connected auto-apply service. It supports authorized live JSON discovery, CSV imports from authorized sources, CV parsing, deterministic skill scoring, 10-day filtering, a 20-attempt daily reservation cap, duplicate protection, Django admin review, and confirmation records. It **does not** scrape job boards or submit to external websites.
 
 ## Windows PowerShell setup
 
@@ -21,10 +21,33 @@ Open http://127.0.0.1:8000/admin/ . Add one CandidateProfile with your latest PD
 
 ## Import jobs
 
+For the split **07:30 discovery / 08:00 report** Dubai schedules, dry runs and
+the Task Scheduler installer, see [WINDOWS_DAILY_SCHEDULE.md](WINDOWS_DAILY_SCHEDULE.md).
+
+For scheduled discovery, automatic local draft preparation, private SMTP setup,
+daily reports and the application audit/budget, see [DAILY_AUTOMATION.md](DAILY_AUTOMATION.md).
+
+For the current 50% / 10-day policy, supervised application handoff, and manual
+confirmation recording, see [PHASE4A.md](PHASE4A.md).
+
+For dashboard discovery history, the managed background worker, and rejected-
+vacancy audit, see [DISCOVERY_HISTORY.md](DISCOVERY_HISTORY.md).
+
+For the authenticated Phase 3 dashboard, grounded application drafts, explicit
+human approval, and its additive migration, see [PHASE3.md](PHASE3.md).
+
+For Phase 2C combined discovery, eleven verified employer boards, Gmail alerts, mapped public
+APIs, and safe manual imports, see [PHASE2C.md](PHASE2C.md).
+
+For Phase 2 live discovery, configuration, and isolated tests, see [DISCOVERY.md](DISCOVERY.md).
+
+For Phase 2B authorized job-alert email imports, Windows credential setup, review
+handling, migrations, and daily scheduling, see [EMAIL_ALERTS.md](EMAIL_ALERTS.md).
+
 Import a CSV with headers: `source,source_id,company,title,location,url,posted_at,min_experience,max_experience,description`. `posted_at` must be a verified ISO-8601 timestamp with offset (e.g. `2026-11-09T08:00:00+04:00`). Do not fabricate posting dates.
 
 ```powershell
-python manage.py import_jobs jobs.csv
+python manage.py import_jobs jobs.csv --profile-id 1 --authorization-reference "Authorized export" --dry-run
 python manage.py run_daily_jobs --profile-id 1 --limit 20
 ```
 

@@ -4,3 +4,11 @@
 __pycache__/
 *.pyc
 /db.sqlite3
+/discovery_sources.local.json
+/email_alerts.local.json
+/manual_job_links.local.json
+/manual_jobs.csv
+/discovery_sources.phase2c.local.json
+/output/dashboard_preview/
+/email_delivery.local.json
+/output/scheduled_tasks/

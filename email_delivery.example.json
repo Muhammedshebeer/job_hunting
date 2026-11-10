@@ -1,0 +1,11 @@
+{
+  "authorized": false,
+  "username": "shabeersh122@gmail.com",
+  "from_email": "shabeersh122@gmail.com",
+  "recipient": "shabeersh122@gmail.com",
+  "host": "smtp.gmail.com",
+  "port": 587,
+  "use_tls": true,
+  "use_ssl": false,
+  "credential_service": "uae-job-agent-smtp"
+}
