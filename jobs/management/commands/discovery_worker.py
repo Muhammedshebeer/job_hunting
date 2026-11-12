@@ -7,6 +7,7 @@ from jobs.services.discovery_lock import DiscoveryBusy, discovery_execution_lock
 from jobs.services.discovery_runs import process_next_run
 from applications.services.reports import process_report_queue
 from applications.services.daily import prepare_missing_drafts
+from jobs.services.retention import cleanup_rejected_vacancies
 
 
 class Command(BaseCommand):
@@ -22,10 +23,16 @@ class Command(BaseCommand):
         if not 1 <= options['poll_seconds'] <= 60:
             raise CommandError('Poll interval must be 1–60 seconds')
         self.stdout.write('Discovery worker ready. Only authorized discovery sources will run.')
+        next_cleanup = 0
         try:
             while True:
                 try:
                     with discovery_execution_lock():
+                        if time.monotonic() >= next_cleanup:
+                            deleted = cleanup_rejected_vacancies()
+                            next_cleanup = time.monotonic() + 3600
+                            if deleted:
+                                self.stdout.write(f'Deleted {deleted} rejected vacancies older than 5 days.')
                         run = process_next_run()
                         if run:
                             prepared = prepare_missing_drafts(run.candidate)

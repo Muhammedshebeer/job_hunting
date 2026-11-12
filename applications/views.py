@@ -16,7 +16,8 @@ from jobs.models import Job, DiscoveryRun
 from jobs.services.discovery_runs import enqueue_discovery, rejection_label, summary_counts, run_policy
 from profiles.models import CandidateProfile
 from applications.services.supervised import current_approval_issues, open_application, record_manual_submission
-from applications.services.reports import workflow_rows, queue_report
+from applications.services.reports import workflow_rows, queue_report, submission_counts
+from jobs.services.locations import prioritize_jobs, location_group, LOCATION_GROUPS
 
 
 def staff_required(view):
@@ -50,6 +51,9 @@ def dashboard(request):
     profile, profiles = selected_profile(request)
     queryset = Job.objects.all()
     query, source, selected = request.GET.get('q', '')[:200], request.GET.get('source', ''), request.GET.get('status', 'all')
+    region = request.GET.get('region', 'all')
+    if region not in ('all', 'uae', 'other', 'unknown'):
+        region = 'all'
     if query:
         queryset = queryset.filter(Q(title__icontains=query) | Q(company__icontains=query))
     if source:
@@ -58,7 +62,10 @@ def dashboard(request):
         queryset = queryset.prefetch_related(Prefetch('applications',
             queryset=Application.objects.filter(candidate=profile), to_attr='candidate_applications'))
     rows, counts = [], {'all': 0, 'eligible': 0, 'needs_review': 0, 'rejected': 0, 'already_applied': 0}
-    for job in queryset.order_by('-discovered_at'):
+    for job in prioritize_jobs(queryset.order_by('-discovered_at')):
+        group = location_group(job.location)
+        if region != 'all' and group != region:
+            continue
         assessment = job_assessment(job, profile) if profile else {'status': 'needs_review', 'score': 0, 'reasons': ['Create an active candidate profile first.']}
         app = job.candidate_applications[0] if profile and job.candidate_applications else None
         status = 'already_applied' if app and app.status == 'submitted' else assessment['status']
@@ -67,14 +74,19 @@ def dashboard(request):
         if selected not in counts:
             selected = 'all'
         if selected == 'all' or status == selected:
-            rows.append({'job': job, 'assessment': assessment, 'status': status, 'application': app})
+            rows.append({'job': job, 'assessment': assessment, 'status': status, 'application': app,
+                         'location_group': group})
+    page = Paginator(rows, 20).get_page(request.GET.get('page'))
     return render(request, 'applications/dashboard.html', {'profile': profile, 'profiles': profiles,
-        'page': Paginator(rows, 20).get_page(request.GET.get('page')), 'counts': counts,
+        'page': page, 'counts': counts, 'region': region,
+        'location_sections': [(label, [r for r in page if r['location_group'] == code],
+            sum(r['location_group'] == code for r in rows)) for code, label in LOCATION_GROUPS],
         'selected': selected, 'query': query, 'source': source,
         'sources': Job.objects.values_list('source', flat=True).distinct().order_by('source'),
         'discovery_runs': discovery_history(profile),
         'ready_applications': ready_applications(profile),
         'workflow_sections': workflow_sections(profile),
+        'submission_counts': submission_counts(profile),
         'last_discovery': DiscoveryRun.objects.filter(candidate=profile, status='completed').order_by('-finished_at').first(),
         'last_report': DailyReport.objects.filter(candidate=profile, status='sent', kind='daily').order_by('-sent_at').first(),
         'recent_reports': DailyReport.objects.filter(candidate=profile)[:5],

@@ -44,9 +44,9 @@ class DateAssessmentTests(SimpleTestCase):
             with self.subTest(value=value):
                 self.assertEqual(assess_date(value, NOW), (None, reason))
 
-    def test_240_hour_boundary_is_same_in_utc_and_uae(self):
+    def test_72_hour_boundary_is_same_in_utc_and_uae(self):
         uae = ZoneInfo('Asia/Dubai')
-        boundary = NOW - timedelta(days=10)
+        boundary = NOW - timedelta(days=3)
         self.assertEqual(assess_date(boundary.astimezone(uae).isoformat(), NOW)[1], 'within_publication_window')
         self.assertEqual(assess_date((boundary - timedelta(microseconds=1)).isoformat(), NOW)[1], 'older_than_publication_window')
         self.assertEqual(assess_date((NOW + timedelta(microseconds=1)).isoformat(), NOW)[1], 'future_publication_date')
@@ -56,9 +56,9 @@ class DateAssessmentTests(SimpleTestCase):
         now = datetime(2026, 11, 9, 20, 30, tzinfo=utc.utc)  # Nov 10, 00:30 UAE.
         window = date_window(now)
         self.assertTrue(window['run_uae'].startswith('2026-11-10T00:30'))
-        self.assertTrue(window['cutoff_uae'].startswith('2026-10-31T00:30'))
-        self.assertEqual(window['inclusive_window_hours'], 240)
-        self.assertEqual(assess_date('2026-10-31T00:29:59+04:00', now)[1], 'older_than_publication_window')
+        self.assertTrue(window['cutoff_uae'].startswith('2026-11-07T00:30'))
+        self.assertEqual(window['inclusive_window_hours'], 72)
+        self.assertEqual(assess_date('2026-11-07T00:29:59+04:00', now)[1], 'older_than_publication_window')
 
     def test_greenhouse_update_date_never_replaces_old_original_publication(self):
         source = dict(api_source(), adapter='greenhouse', board='test', company='Employer')
@@ -107,7 +107,7 @@ class DateAssessmentTests(SimpleTestCase):
 
     def test_diagnostic_includes_only_approved_role_and_uae_candidates(self):
         self.assertIsNone(candidate_date_diagnostic(full_row(title='Accountant'), api_source(), NOW))
-        self.assertIsNone(candidate_date_diagnostic(full_row(location='London'), api_source(), NOW))
+        self.assertIsNotNone(candidate_date_diagnostic(full_row(location='London'), api_source(), NOW))
 
 
 class MappedDateEvidenceTests(TestCase):

@@ -3,14 +3,14 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-MIN_CV_SCORE = 50
-PUBLICATION_WINDOW_DAYS = 10
-POLICY_VERSION = 'phase4a-v1'
+MIN_CV_SCORE = 25
+PUBLICATION_WINDOW_DAYS = 3
+POLICY_VERSION = 'worldwide-three-day-25-v1'
 
 
 def snapshot():
     return {'version': POLICY_VERSION, 'minimum_cv_score': MIN_CV_SCORE,
-            'publication_window_days': PUBLICATION_WINDOW_DAYS}
+            'publication_window_days': PUBLICATION_WINDOW_DAYS, 'location_scope': 'worldwide_uae_first'}
 
 
 def recent_publication(posted, now):

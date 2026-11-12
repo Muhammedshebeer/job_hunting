@@ -13,9 +13,10 @@ from django.utils import timezone
 
 from applications.models import Application, ApplicationEvent
 from jobs.models import Job
-from jobs.services.discovery import ROLE_PATTERN, experience, target_location
+from jobs.services.discovery import ROLE_PATTERN, experience
 from jobs.services.discovery import DiscoveryError, canonical_url
 from jobs.services.matching import score_job, SKILLS, ALIASES
+from jobs.services.locations import location_group
 from profiles.models import CandidateProfile
 
 
@@ -132,8 +133,6 @@ def job_assessment(job, profile, now=None):
         missing.append('Company is missing.')
     if not job.location:
         missing.append('Location is missing.')
-    elif not target_location(job.location):
-        rejected.append('Location is outside Dubai, Abu Dhabi, Sharjah, or verified UAE remote.')
     if job.posted_at is None:
         missing.append('Publication date is unverified.')
     elif timezone.is_naive(job.posted_at):
@@ -283,6 +282,10 @@ def prepare_draft(job_id, profile_id, *, extra_questions='', user=None, only_if_
     app.application_url, app.company_snapshot, app.role_snapshot = safe_destination(job.url), job.company, job.title
     app.cover_letter = generate_cover_letter(job, profile)
     app.draft_answers = {key: prepare_answer(question, profile) for key, question in questions.items()}
+    if location_group(job.location) == 'other':
+        for key in ('sponsorship', 'work_authorization'):
+            app.draft_answers[key].update(answer='', requires_review=True,
+                reason=f'Work authorization and sponsorship for {job.location} have not been verified. A UAE visa does not establish authorization for this location.')
     app.prepared_at = timezone.now()
     assessment = job_assessment(job, profile)
     app.preparation_snapshot = {'evidence_digest': evidence_digest(job, profile, questions), 'questions': questions,

@@ -27,10 +27,10 @@ class FunnelTests(SimpleTestCase):
         self.assertEqual(row, before)
 
     def test_role_location_date_experience_and_score_have_cumulative_semantics(self):
-        keys = ['role_pass', 'uae_pass', 'date_pass', 'experience_pass', 'cv_pass']
+        keys = ['role_pass', 'location_pass', 'date_pass', 'experience_pass', 'cv_pass']
         for row, cv, passes in (
             (full_row(title='Accountant'), 'python django', 0),
-            (full_row(location='London'), 'python django', 1),
+            (full_row(location=''), 'python django', 1),
             (full_row(posted_at=(NOW - timedelta(days=11)).isoformat()), 'python django', 2),
             (full_row(min_experience=5, max_experience=8), 'python django', 3),
             (full_row(), 'unrelated', 4),
@@ -45,10 +45,10 @@ class FunnelTests(SimpleTestCase):
         self.assertEqual(counts['audit.recent_matches'], 0)
         self.assertEqual(counts['stage.date_pass'], 0)
 
-    def test_naive_missing_future_and_exact_ten_day_boundary(self):
+    def test_naive_missing_future_and_exact_three_day_boundary(self):
         for date, passed, unknown in ((None, 0, 1), ('2026-11-09T12:00:00', 0, 1),
                                      ((NOW + timedelta(seconds=1)).isoformat(), 0, 0),
-                                     ((NOW - timedelta(days=10)).isoformat(), 1, 0)):
+                                     ((NOW - timedelta(days=3)).isoformat(), 1, 0)):
             counts = filter_funnel(full_row(posted_at=date), 'python django', NOW)
             self.assertEqual(counts['stage.date_pass'], passed)
             self.assertEqual(counts['stage.date_unknown'], unknown)

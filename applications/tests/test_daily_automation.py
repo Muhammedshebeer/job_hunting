@@ -82,6 +82,71 @@ class DailyAutomationTests(TestCase):
         process_report_queue(report.pk)
         self.assertEqual(len(mail.outbox), 2)
 
+    def test_email_summarizes_confirmed_company_counts_without_claiming_auto_apply(self):
+        for index, (company, snapshot, status, reference) in enumerate((
+            ('Current employer name', 'Acme & Sons', 'submitted', 'REF-1'),
+            ('acme & sons', '', 'submitted', 'REF-2'),
+            ('Beta', '', 'submitted', 'REF-3'),
+            ('Not submitted', '', 'externally_opened', 'OPENED'),
+            ('No evidence', '', 'submitted', ''),
+        )):
+            job = make_job(source_id=f'summary-{index}',
+                url=f'https://careers.fixture-employer.com/jobs/summary-{index}', company=company)
+            Application.objects.create(job=job, candidate=self.profile, status=status,
+                submitted_at=NOW, confirmation_reference=reference, company_snapshot=snapshot)
+        report, _ = queue_report(self.profile)
+        counts = report_context(report)['submission_counts']
+        self.assertEqual(counts['confirmed_submissions'], 3)
+        self.assertEqual(counts['confirmed_company_count'], 2)
+        self.assertEqual(counts['confirmed_companies'], [
+            {'name': 'Acme & Sons', 'count': 2}, {'name': 'Beta', 'count': 1}])
+        self.assertEqual(counts['auto_applied'], 0)
+        self.assertEqual(counts['auto_applied_companies'], [])
+        process_report_queue(report.pk)
+        message = mail.outbox[0]
+        self.assertIn('Acme & Sons: 2 applications', message.body)
+        self.assertIn('Beta: 1 application', message.body)
+        self.assertIn('Companies with confirmed submissions (2)', message.body)
+        self.assertIn('Acme &amp; Sons', message.alternatives[0].content)
+        self.assertIn('Automatic submission is not configured', message.body)
+        self.assertIn('Companies needing review (2 jobs awaiting review or approval)', message.body)
+        self.assertIn('Not submitted: 1 job to review', message.body)
+        self.assertIn('No evidence: 1 job to review', message.body)
+
+    def test_review_company_summary_groups_jobs_and_includes_pending_approval(self):
+        make_job(source_id='review-1', url='https://careers.fixture-employer.com/jobs/review-1',
+            company='Review & Co', requires_review=True)
+        make_job(source_id='review-2', url='https://careers.fixture-employer.com/jobs/review-2',
+            company='review & co', requires_review=True)
+        make_job(source_id='pending', url='https://careers.fixture-employer.com/jobs/pending', company='Pending Employer')
+        make_job(source_id='rejected', url='https://careers.fixture-employer.com/jobs/rejected',
+            company='Excluded Employer', posted_at=NOW - timedelta(days=10))
+        report, _ = queue_report(self.profile)
+        context = report_context(report)
+        self.assertEqual(context['review_job_count'], 3)
+        self.assertEqual(context['review_companies'], [
+            {'name': 'Pending Employer', 'count': 1}, {'name': 'Review & Co', 'count': 2}])
+        self.assertEqual(context['submission_counts']['confirmed_submissions'], 0)
+        process_report_queue(report.pk)
+        self.assertIn('Review &amp; Co', mail.outbox[0].alternatives[0].content)
+
+    def test_company_summary_uses_report_date_and_selected_candidate(self):
+        from applications.services.budget import day_bounds
+        start, end = day_bounds(uae_day())
+        other = make_profile(name='Other candidate')
+        for index, (moment, profile) in enumerate((
+            (start, self.profile), (end - timedelta(microseconds=1), self.profile),
+            (start - timedelta(microseconds=1), self.profile), (end, self.profile), (NOW, other),
+        )):
+            job = make_job(source_id=f'boundary-{index}', company=f'Company {index}',
+                url=f'https://careers.fixture-employer.com/jobs/boundary-{index}')
+            Application.objects.create(job=job, candidate=profile, status='submitted',
+                submitted_at=moment, confirmation_reference=f'REF-{index}')
+        report, _ = queue_report(self.profile)
+        counts = report_context(report)['submission_counts']
+        self.assertEqual(counts['confirmed_submissions'], 2)
+        self.assertEqual([company['name'] for company in counts['confirmed_companies']], ['Company 0', 'Company 1'])
+
     def test_only_proven_submissions_include_confirmation_and_time(self):
         app = self.approved()
         # A reference on an approved/opened record is never displayed as a successful submission.

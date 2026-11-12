@@ -37,6 +37,28 @@ class DashboardTests(TestCase):
         self.job.refresh_from_db()
         self.assertEqual(self.job.match_score, 40)
 
+    def test_today_counts_use_dubai_boundaries_evidence_and_selected_profile(self):
+        from applications.services.budget import day_bounds, uae_day
+        from applications.services.reports import submission_counts
+        start, end = day_bounds(uae_day())
+        for index, (submitted, reference, status, candidate) in enumerate((
+            (start, 'CONFIRMED', 'submitted', self.profile),
+            (start - timedelta(microseconds=1), 'YESTERDAY', 'submitted', self.profile),
+            (end, 'TOMORROW', 'submitted', self.profile),
+            (NOW, '', 'submitted', self.profile),
+            (NOW, 'OPENED', 'externally_opened', self.profile),
+            (NOW, 'OTHER', 'submitted', make_profile(name='Other')),
+        )):
+            job = make_job(source_id=f'count-{index}', url=f'https://example.com/count-{index}')
+            Application.objects.create(job=job, candidate=candidate, status=status,
+                submitted_at=submitted, confirmation_reference=reference)
+        self.assertEqual(submission_counts(self.profile)['confirmed_submissions'], 1)
+        self.assertEqual(submission_counts(self.profile)['auto_applied'], 0)
+        self.client.force_login(self.staff)
+        response = self.client.get('/', {'q': 'no matching jobs'})
+        self.assertEqual(response.context['submission_counts']['confirmed_submissions'], 1)
+        self.assertContains(response, 'Auto-applied today (Asia/Dubai)')
+
     def test_all_four_qualification_filters_and_existing_application_status(self):
         make_job(source_id='old', url='https://example.com/old', posted_at=NOW - timedelta(days=12))
         make_job(source_id='review', url='https://example.com/review', requires_review=True)

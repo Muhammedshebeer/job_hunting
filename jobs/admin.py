@@ -27,5 +27,5 @@ class DiscoveryRunAdmin(ReadOnlyDiscoveryAdmin):
 
 @admin.register(RejectedVacancy)
 class RejectedVacancyAdmin(ReadOnlyDiscoveryAdmin):
-    list_display = ('run', 'company', 'title', 'location', 'source', 'posted_at', 'rejection_code')
+    list_display = ('run', 'company', 'title', 'location', 'source', 'posted_at', 'observed_at', 'rejection_code')
     list_filter = ('source', 'rejection_code')

@@ -151,8 +151,8 @@ class ParsingTests(SimpleTestCase):
     def test_date_validation_boundary_old_future_naive_and_relative(self):
         for value in ('2026-11-09', 'yesterday', '2 days ago', '2026-11-09T08:00:00', None):
             self.assertIsNone(parse_publication(value))
-        for date, expected in ((NOW - timedelta(days=10), 'qualified'),
-                               (NOW - timedelta(days=10, seconds=1), 'rejected_date'),
+        for date, expected in ((NOW - timedelta(days=3), 'qualified'),
+                               (NOW - timedelta(days=3, seconds=1), 'rejected_date'),
                                (NOW + timedelta(seconds=1), 'rejected_date')):
             message = email_message(html='<script type="application/ld+json">' + json.dumps(posting(datePosted=date.isoformat())) + '</script>')
             row = list(parse_alert(message, 'linkedin'))[0]
@@ -186,7 +186,7 @@ class ParsingTests(SimpleTestCase):
     def test_target_role_location_experience_and_score_filters(self):
         for changes, cv, expected in (
             ({'title': 'Accountant'}, 'python django', 'rejected_role'),
-            ({'jobLocation': {'address': {'addressLocality': 'London'}}}, 'python django', 'rejected_location'),
+            ({'jobLocation': {'address': {'addressLocality': 'London'}}}, 'python django', 'qualified'),
             ({'description': 'Python Django. 5 years experience'}, 'python django', 'rejected_experience'),
             ({}, 'unrelated skills', 'rejected_score'),
         ):

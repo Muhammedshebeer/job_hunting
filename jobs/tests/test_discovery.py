@@ -79,8 +79,8 @@ class FilteringTests(SimpleTestCase):
         self.assertEqual(metrics['recent_uae_target_cv_pass'], 1)
         self.assertEqual(normalize(row, 'test', 'python django', NOW)[1], 'experience_needs_review')
 
-    def test_exact_ten_day_boundary_and_offsets(self):
-        for value in (NOW, NOW - timedelta(days=10), NOW - timedelta(seconds=1)):
+    def test_exact_three_day_boundary_and_offsets(self):
+        for value in (NOW, NOW - timedelta(days=3), NOW - timedelta(seconds=1)):
             with self.subTest(value=value):
                 self.assertEqual(posted_within_week(value.isoformat(), NOW), value)
         self.assertEqual(posted_within_week('2026-11-09T16:00:00+04:00', NOW), NOW)
@@ -88,7 +88,7 @@ class FilteringTests(SimpleTestCase):
     def test_rejects_unverified_old_and_future_dates(self):
         for value in (None, '', 'yesterday', '2026-11-09', '2026-11-09T10:00:00',
                       (NOW + timedelta(microseconds=1)).isoformat(),
-                      (NOW - timedelta(days=10, microseconds=1)).isoformat()):
+                      (NOW - timedelta(days=3, microseconds=1)).isoformat()):
             with self.subTest(value=value):
                 self.assertIsNone(posted_within_week(value, NOW))
 
@@ -96,7 +96,7 @@ class FilteringTests(SimpleTestCase):
         for title in ('Python Developer', 'Django Developer', 'Backend Engineer',
                       'Back-end Developer', 'Full Stack Developer', 'Fullstack Developer',
                       'Software Engineer', 'AI Developer'):
-            for location in ('Dubai', 'Abu Dhabi, UAE', 'Sharjah', 'Remote - UAE'):
+            for location in ('Dubai', 'Abu Dhabi, UAE', 'Sharjah', 'Remote - UAE', 'Riyadh', 'London', 'Remote - Europe', 'Remote', 'United Arab Emirates'):
                 with self.subTest(title=title, location=location):
                     data, reason = normalize(record(title=title, location=location), 'test', 'python django', NOW)
                     self.assertIsNone(reason)
@@ -105,10 +105,6 @@ class FilteringTests(SimpleTestCase):
     def test_rejections(self):
         cases = [
             ({'title': 'Accountant'}, 'role'),
-            ({'location': 'Remote - Europe'}, 'location'),
-            ({'location': 'Remote'}, 'location'),
-            ({'location': 'Riyadh'}, 'location'),
-            ({'location': 'United Arab Emirates'}, 'location'),
             ({'min_experience': 4}, 'experience_needs_review'),
             ({'min_experience': 4, 'max_experience': 6}, 'experience'),
             ({'min_experience': 0, 'max_experience': 0}, 'experience'),
@@ -130,7 +126,8 @@ class FilteringTests(SimpleTestCase):
         # Django (5) + rest api (3) + Python (4) = 12; 9/12 = 75%.
         row = record(description='Django REST API Python')
         self.assertEqual(normalize(row, 'test', 'django python', NOW)[0]['match_score'], 75)
-        self.assertEqual(normalize(row, 'test', 'django', NOW)[1], 'match_below_threshold')
+        self.assertEqual(normalize(row, 'test', 'django', NOW)[0]['match_score'], 42)
+        self.assertEqual(normalize(row, 'test', 'unrelated skills', NOW)[1], 'match_below_threshold')
 
     def test_conservative_experience_extraction(self):
         for text, expected in (

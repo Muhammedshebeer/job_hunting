@@ -19,6 +19,7 @@ from django.utils import timezone
 
 from jobs.models import Job
 from jobs.services.matching import score_job
+from jobs.services.locations import known_location, location_group
 
 
 class DiscoveryError(ValueError):
@@ -148,7 +149,7 @@ def source_rows(source, fetcher=fetch_json):
             # The documented list response may omit first_published. Retrieve
             # detail only for target roles/locations, bounded to 100 per source.
             if (not row.get('first_published') and isinstance(row.get('title'), str)
-                    and ROLE_PATTERN.search(row['title']) and target_location(location_name)):
+                    and ROLE_PATTERN.search(row['title']) and known_location(location_name)):
                 if detail_requests >= 100:
                     raise DiscoveryError('100-job detail request limit reached; narrow the employer board')
                 detail_requests += 1
@@ -207,9 +208,8 @@ EXPERIENCE_MIN = re.compile(r'\b(\d{1,2})\s*(\+)?\s+years?\s+(?:of\s+)?experienc
 
 
 def target_location(location):
-    return isinstance(location, str) and bool(CITY_PATTERN.search(location) or (
-        UAE_PATTERN.search(location) and re.search(r'\bremote\b', location, re.I)
-    ))
+    """UAE priority classification; other locations are also eligible."""
+    return location_group(location) == 'uae'
 
 
 def experience(row):
@@ -245,8 +245,6 @@ def normalize(row, source_name, cv_text, now):
         return None, 'closed_or_unverified_open'
     if not ROLE_PATTERN.search(row['title']):
         return None, 'role'
-    if not target_location(row['location']):
-        return None, 'location'
     bounds = experience(row)
     if bounds is None:
         return None, 'experience_needs_review'

@@ -7,9 +7,9 @@ def eligible(job, profile=None):
         return (assessment['status'] == 'eligible',
                 '; '.join(assessment['reasons']) or 'Eligible for application preparation')
     if job.requires_review: return False, 'Discovery requires review'
-    from jobs.services.discovery import ROLE_PATTERN, target_location
+    from jobs.services.discovery import ROLE_PATTERN
     from applications.services.preparation import application_source_issues
-    if not ROLE_PATTERN.search(job.title) or not target_location(job.location): return False, 'Role or UAE location does not qualify'
+    if not ROLE_PATTERN.search(job.title) or not job.location.strip(): return False, 'Role or verified location does not qualify'
     if application_source_issues(job): return False, 'Application source evidence requires review'
     now=timezone.now()
     if not policy.recent_publication(job.posted_at, now): return False, f'Outside verified last {policy.PUBLICATION_WINDOW_DAYS} days'

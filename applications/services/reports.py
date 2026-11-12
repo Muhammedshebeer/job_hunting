@@ -16,16 +16,43 @@ from jobs.models import DiscoveryRun, Job
 from jobs.services.discovery_lock import discovery_execution_lock, check_discovery_ownership
 from jobs.services.discovery_runs import summary_counts
 from jobs import qualification as policy
+from jobs.services.locations import prioritize_jobs, location_group, LOCATION_GROUPS
+
+
+def submission_counts(profile, day=None):
+    """Confirmed submissions for a Dubai day, independent of job search filters."""
+    day = day or uae_day()
+    start, end = day_bounds(day)
+    apps = Application.objects.filter(candidate=profile, status='submitted',
+        submitted_at__gte=start, submitted_at__lt=end).select_related('job').order_by('pk')
+    from applications.services.routes import confirmed_submission
+    companies = {}
+    submitted = 0
+    for app in apps:
+        if not confirmed_submission(app):
+            continue
+        submitted += 1
+        name = (app.company_snapshot or app.job.company).strip() or 'Company unverified'
+        key = name.casefold()
+        entry = companies.setdefault(key, {'name': name, 'count': 0})
+        entry['count'] += 1
+    # There is no automatic submission implementation. Never infer auto success
+    # from a draft, approval, external opening, or an unattributed legacy record.
+    return {'day': day, 'auto_applied': 0, 'auto_applied_companies': [],
+            'confirmed_submissions': submitted,
+            'confirmed_company_count': len(companies),
+            'confirmed_companies': [companies[key] for key in sorted(companies)]}
 
 
 def workflow_rows(profile):
     apps = {app.job_id: app for app in Application.objects.filter(candidate=profile).select_related('job', 'candidate')}
     rows = []
-    for job in Job.objects.order_by('-discovered_at'):
+    for job in prioritize_jobs(Job.objects.order_by('-discovered_at')):
         app = apps.get(job.pk)
         assessment = job_assessment(job, profile)
         category = application_category(job, profile, app)
         rows.append({'job': job, 'app': app, 'score': assessment['score'], 'category': category,
+            'location_group': location_group(job.location),
             'qualified': assessment['status'] == 'eligible',
             'url': public_application_url(job),
             'status': app.get_status_display() if app else assessment['status'].replace('_', ' ').title(),
@@ -41,6 +68,14 @@ def latest_discovery_snapshot(profile):
 
 def report_context(report):
     rows = workflow_rows(report.candidate)
+    review_companies = {}
+    for row in rows:
+        if row['category'] != 'needs_review' and not (
+                row['category'] in ('manual_apply', 'auto_apply') and not row['approved']):
+            continue
+        name = row['job'].company.strip() or 'Company unverified'
+        entry = review_companies.setdefault(name.casefold(), {'name': name, 'count': 0})
+        entry['count'] += 1
     start, end = day_bounds(report.report_date)
     success = [r for r in rows if r['category'] == 'submitted' and start <= r['app'].submitted_at < end]
     failed = [r for r in rows if r['category'] == 'failed' and start <= r['app'].updated_at < end]
@@ -70,6 +105,11 @@ def report_context(report):
         'discovery': latest, 'discovery_note': note, 'summary': summary_counts(latest.totals if latest else {}),
         'eligible_count': sum(r['category'] in ('auto_apply', 'manual_apply') for r in rows),
         'qualified_count': sum(r['qualified'] for r in rows), 'policy': policy.snapshot(),
+        'submission_counts': submission_counts(report.candidate, report.report_date),
+        'review_companies': [review_companies[key] for key in sorted(review_companies)],
+        'review_job_count': sum(company['count'] for company in review_companies.values()),
+        'location_sections': [(label, [r for r in rows if r['location_group'] == code and r['qualified']])
+                              for code, label in LOCATION_GROUPS],
         'test_email': report.kind == 'test'}
 
 

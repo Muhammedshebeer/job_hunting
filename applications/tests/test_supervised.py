@@ -31,38 +31,38 @@ class UpdatedPolicyTests(TestCase):
         self.addCleanup(self.clock.stop)
         self.profile = make_profile(resume_text='Python')
 
-    def test_exact_50_percent_and_ten_days_qualify_across_services(self):
-        row = full_row(description='Python FastAPI. Required: 1-3 years of experience.',
-                       posted_at=(NOW - timedelta(days=10)).isoformat())
-        self.assertEqual(normalize(row, 'api', 'Python', NOW)[0]['match_score'], 50)
+    def test_exact_25_percent_and_three_days_qualify_across_services(self):
+        row = full_row(description='Python FastAPI PostgreSQL React AI. Required: 1-3 years of experience.',
+                       posted_at=(NOW - timedelta(days=3)).isoformat())
+        self.assertEqual(normalize(row, 'api', 'Python', NOW)[0]['match_score'], 25)
         data, outcome = classify_record(row, 'api', 'Python', NOW, method='authorized_json')
         self.assertEqual(outcome, 'qualified')
-        self.assertEqual(data['match_score'], 50)
+        self.assertEqual(data['match_score'], 25)
         alert = dict(row, description_verified=True, source='indeed',
                      date_evidence='email JobPosting.datePosted', valid_through=(NOW + timedelta(days=1)).isoformat())
         self.assertEqual(classify_alert(alert, 'Python', NOW)[1], 'qualified')
         self.assertEqual(filter_funnel(row, 'Python', NOW)['stage.cv_pass'], 1)
-        job = make_job(description=row['description'], posted_at=NOW - timedelta(days=10))
+        job = make_job(description=row['description'], posted_at=NOW - timedelta(days=3))
         self.assertEqual(job_assessment(job, self.profile)['status'], 'eligible')
-        self.assertEqual(job_assessment(job, self.profile)['score'], 50)
-        job.match_score = 50
+        self.assertEqual(job_assessment(job, self.profile)['score'], 25)
+        job.match_score = 25
         self.assertTrue(eligible(job)[0])
-        job.match_score = 49
+        job.match_score = 24
         self.assertFalse(eligible(job)[0])
         self.assertEqual(assess_date(row['posted_at'], NOW)[1], 'within_publication_window')
-        self.assertEqual(date_window(NOW)['inclusive_window_hours'], 240)
+        self.assertEqual(date_window(NOW)['inclusive_window_hours'], 72)
 
     def test_one_microsecond_too_old_future_naive_and_missing_dates_do_not_qualify(self):
-        for posted in (NOW - timedelta(days=10, microseconds=1), NOW + timedelta(microseconds=1),
+        for posted in (NOW - timedelta(days=3, microseconds=1), NOW + timedelta(microseconds=1),
                        NOW.replace(tzinfo=None), None):
             job = make_job(posted_at=posted if posted is None or posted.tzinfo else None, source_id=str(posted),
                            url='https://careers.fixture-employer.com/jobs/' + str(abs(hash(posted))))
             job.posted_at = posted
             self.assertNotEqual(job_assessment(job, self.profile)['status'], 'eligible')
 
-    def test_below_50_and_unknown_evidence_do_not_qualify(self):
+    def test_below_25_and_unknown_evidence_do_not_qualify(self):
         job = make_job(description='Python FastAPI')
-        with patch('applications.services.preparation.score_job', return_value=(49, {})):
+        with patch('applications.services.preparation.score_job', return_value=(24, {})):
             self.assertEqual(job_assessment(job, self.profile)['status'], 'rejected')
         for index, changes in enumerate(({'posted_at': None}, {'min_experience': None, 'max_experience': None},
                         {'description': ''}, {'discovery_metadata': {}},
@@ -279,7 +279,7 @@ class SupervisedWorkflowTests(TestCase):
     def test_exact_policy_boundary_can_open_but_expires_one_microsecond_later(self):
         self.profile.resume_text = 'Python'
         self.profile.save()
-        self.job.description, self.job.posted_at = 'Python FastAPI. Required: 1-3 years experience.', NOW - timedelta(days=10)
+        self.job.description, self.job.posted_at = 'Python FastAPI. Required: 1-3 years experience.', NOW - timedelta(days=3)
         self.job.save()
         app = self.approved()
         self.assertEqual(open_application(app.pk, self.user, draft_digest(app)), self.job.url)

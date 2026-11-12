@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 from django.utils import timezone
 
-from jobs.services.discovery import ROLE_PATTERN, target_location
+from jobs.services.discovery import ROLE_PATTERN
 
 
 UAE = ZoneInfo('Asia/Dubai')
@@ -72,7 +72,7 @@ def date_window(now):
 def candidate_date_diagnostic(row, source, now):
     if not isinstance(row, dict) or not isinstance(row.get('title'), str):
         return None
-    if not ROLE_PATTERN.search(row['title']) or not target_location(row.get('location')):
+    if not ROLE_PATTERN.search(row['title']):
         return None
     adapter = source['adapter']
     field, semantics = {

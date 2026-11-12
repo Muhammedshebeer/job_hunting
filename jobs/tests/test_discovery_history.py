@@ -83,8 +83,8 @@ class DiscoveryQueueTests(TestCase):
         self.assertIsNotNone(run.started_at)
         self.assertIsNotNone(run.finished_at)
         self.assertEqual(run.totals['fetched'], 3)
-        self.assertEqual(run.totals['policy.minimum_cv_score'], 50)
-        self.assertEqual(run.totals['policy.publication_window_days'], 10)
+        self.assertEqual(run.totals['policy.minimum_cv_score'], 25)
+        self.assertEqual(run.totals['policy.publication_window_days'], 3)
         self.assertEqual(run.totals['eligible'], 1)
         self.assertEqual(run.totals['review'], 1)
         self.assertEqual(run.totals['rejected'], 1)
@@ -101,7 +101,7 @@ class DiscoveryQueueTests(TestCase):
 
     def test_worker_uses_all_strict_rejection_rules(self):
         self.queue()
-        changes = [{'title': 'Accountant'}, {'location': 'London'},
+        changes = [{'title': 'Accountant'},
                    {'posted_at': (NOW - timedelta(days=12)).isoformat()},
                    {'min_experience': 5, 'max_experience': 8}, {'description': 'Unrelated work'},
                    {'accepting_applications': False}]
@@ -109,7 +109,7 @@ class DiscoveryQueueTests(TestCase):
                 for i, change in enumerate(changes)]
         self.assertEqual(self.execute(rows).status, 'completed')
         self.assertEqual(set(RejectedVacancy.objects.values_list('rejection_code', flat=True)), {
-            'rejected_role', 'rejected_location', 'rejected_date', 'rejected_experience',
+            'rejected_role', 'rejected_date', 'rejected_experience',
             'rejected_score', 'rejected_closed'})
         self.assertFalse(Job.objects.exists())
         self.assertFalse(Application.objects.exists())

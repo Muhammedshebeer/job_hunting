@@ -117,7 +117,6 @@ class CandidateCounterTests(TestCase):
 
     def test_known_filter_failures_have_aggregate_and_source_counters(self):
         cases = [({'title': 'Accountant'}, 'python django', 'rejected_role'),
-                 ({'jobLocation': {'address': {'addressLocality': 'London'}}}, 'python django', 'rejected_location'),
                  ({'datePosted': '2020-01-01T00:00:00Z'}, 'python django', 'rejected_date'),
                  ({'description': 'Python Django. 5 years experience'}, 'python django', 'rejected_experience'),
                  ({}, 'unrelated', 'rejected_score')]

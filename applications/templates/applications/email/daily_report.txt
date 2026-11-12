@@ -1,5 +1,25 @@
-UAE Job Agent {% if test_email %}TEST EMAIL{% endif %} - {{ report.report_date }} (Asia/Dubai)
+{% autoescape off %}UAE Job Agent {% if test_email %}TEST EMAIL{% endif %} - {{ report.report_date }} (Asia/Dubai)
 No automatic submission integration is enabled.
+Auto-applied on {{ submission_counts.day }} (Asia/Dubai): {{ submission_counts.auto_applied }}
+Confirmed submissions on this date: {{ submission_counts.confirmed_submissions }}
+Auto-applied companies:
+{% for company in submission_counts.auto_applied_companies %}{{ company.name }}: {{ company.count }} application{{ company.count|pluralize }}
+{% empty %}None. Automatic submission is not configured.
+{% endfor %}Companies with confirmed submissions ({{ submission_counts.confirmed_company_count }}):
+{% for company in submission_counts.confirmed_companies %}{{ company.name }}: {{ company.count }} application{{ company.count|pluralize }}
+{% empty %}None. No confirmed submissions were recorded for this date.
+{% endfor %}Counts cover {{ submission_counts.day|date:'d M Y' }} from 00:00 to 24:00 Asia/Dubai, as recorded when this email was prepared.
+Companies needing review ({{ review_job_count }} jobs awaiting review or approval):
+{% for company in review_companies %}{{ company.name }}: {{ company.count }} job{{ company.count|pluralize }} to review
+{% empty %}None.
+{% endfor %}Review items are outstanding jobs as of email preparation, not successful applications.
+Worldwide discovery, UAE first. Minimum {{ policy.minimum_cv_score }}% CV match, last {{ policy.publication_window_days }} days.
+{% for location_title, location_rows in location_sections %}
+{{ location_title }} — matching jobs ({{ location_rows|length }})
+{% for row in location_rows %}{{ row.job.company }} | {{ row.job.title }} | {{ row.job.location }} | {{ row.score }}% | {{ row.status }}
+{{ row.url|default:'Application URL unverified' }}
+{% empty %}None.
+{% endfor %}{% endfor %}
 {% if not qualified_count %}Zero vacancies currently meet all job qualification criteria.{% elif not eligible_count %}Qualifying vacancies require human clarification before they become application-ready.{% endif %}
 {% for title, rows in sections %}
 {{ title }} ({{ rows|length }})
@@ -12,3 +32,4 @@ Publication: {{ row.job.posted_at|date:'c'|default:'Unverified' }} | CV score: {
 Discovery snapshot: {{ discovery_note }}
 Discovery summary: {% if discovery %}Run {{ discovery.pk }} ({{ discovery.status }}), fetched {{ summary.fetched }}, roles {{ summary.roles }}, UAE {{ summary.uae }}, recent {{ summary.recent }}, eligible {{ summary.eligible }}, review {{ summary.review }}, rejected {{ summary.rejected }}, source errors {{ summary.failed }}{% else %}No completed run available{% endif %}.
 Opening a URL is not submission evidence. Review and approve each application separately.
+{% endautoescape %}

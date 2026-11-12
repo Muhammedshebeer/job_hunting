@@ -9,6 +9,8 @@ from applications.services.supervised import revalidate_approvals
 from jobs.models import DiscoveryRun, Job
 from jobs.services.discovery_runs import enqueue_discovery, process_next_run
 from jobs.services.discovery_lock import discovery_execution_lock, DiscoveryBusy
+from jobs.services.retention import cleanup_rejected_vacancies
+from jobs.services.locations import prioritize_jobs
 
 
 def prepare_missing_drafts(profile):
@@ -16,7 +18,7 @@ def prepare_missing_drafts(profile):
     if not cv_file_digest(profile):
         counts['blocked'] = 1
         return counts
-    for job in Job.objects.order_by('pk'):
+    for job in prioritize_jobs(Job.objects.order_by('pk')):
         existing = Application.objects.filter(candidate=profile, job=job).first()
         if existing:
             counts['preserved'] += 1
@@ -36,6 +38,7 @@ def run_daily_job_processing(profile, user):
     if not user.is_active or not user.is_staff or not profile.active or not profile.resume_text.strip():
         raise ValidationError('An active staff identity and candidate with existing CV text are required.')
     with discovery_execution_lock():
+        cleanup_rejected_vacancies()
         day = uae_day()
         active = DiscoveryRun.objects.filter(status__in=('queued', 'running')).first()
         if active and active.candidate_id != profile.pk:

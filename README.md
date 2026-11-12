@@ -1,8 +1,13 @@
 # UAE Job Agent — safe local Django starter
 
-This is a **runnable starter**, not a fully connected auto-apply service. It supports authorized live JSON discovery, CSV imports from authorized sources, CV parsing, deterministic skill scoring, 10-day filtering, a 20-attempt daily reservation cap, duplicate protection, Django admin review, and confirmation records. It **does not** scrape job boards or submit to external websites.
+This is a **runnable starter**, not a fully connected auto-apply service. It supports authorized live JSON discovery, CSV imports from authorized sources, CV parsing, deterministic skill scoring, 3-day filtering with a minimum 25% CV match, a 20-attempt daily reservation cap, duplicate protection, Django admin review, and confirmation records. It **does not** scrape job boards or submit to external websites.
 
 ## Windows PowerShell setup
+
+Discovery accepts all locations from the configured feeds, with UAE jobs first.
+The dashboard and daily report separate UAE jobs from other locations. Matching
+uses the same 3-day/25% criteria worldwide; automatic local draft preparation
+covers both groups. Actual automatic submission still needs an integration.
 
 ```powershell
 py -3.11 -m venv .venv
@@ -27,8 +32,10 @@ the Task Scheduler installer, see [WINDOWS_DAILY_SCHEDULE.md](WINDOWS_DAILY_SCHE
 For scheduled discovery, automatic local draft preparation, private SMTP setup,
 daily reports and the application audit/budget, see [DAILY_AUTOMATION.md](DAILY_AUTOMATION.md).
 
-For the current 50% / 10-day policy, supervised application handoff, and manual
-confirmation recording, see [PHASE4A.md](PHASE4A.md).
+The current qualification policy is at least 25% CV match within the last 3 days;
+see [DAILY_AUTOMATION.md](DAILY_AUTOMATION.md) for daily submission counts. For
+supervised application handoff and manual confirmation recording, see
+[PHASE4A.md](PHASE4A.md) (its original policy values are historical).
 
 For dashboard discovery history, the managed background worker, and rejected-
 vacancy audit, see [DISCOVERY_HISTORY.md](DISCOVERY_HISTORY.md).

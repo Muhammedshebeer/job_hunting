@@ -536,8 +536,6 @@ def classify_alert(row, cv_text, now):
     title, location = row.get('title', ''), row.get('location', '')
     if title and not ROLE_PATTERN.search(title):
         return None, 'rejected_role'
-    if location and not target_location(location):
-        return None, 'rejected_location'
     for field in ('title', 'company', 'location', 'description'):
         if not row.get(field):
             reasons.append('missing_' + field)

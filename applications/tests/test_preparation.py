@@ -152,7 +152,7 @@ class DraftLifecycleTests(TestCase):
 
     def test_old_or_unverified_job_cannot_be_approved_despite_human_answer_resolution(self):
         for changes in ({'posted_at': NOW - timedelta(days=11)}, {'requires_review': True},
-                        {'min_experience': 5}, {'accepting_applications': False}, {'location': 'London'}):
+                        {'min_experience': 5}, {'accepting_applications': False}, {'location': ''}):
             with self.subTest(changes=changes):
                 for field, value in changes.items():
                     setattr(self.job, field, value)
@@ -173,7 +173,7 @@ class DraftLifecycleTests(TestCase):
     def test_expired_job_invalidates_previously_approved_draft(self):
         app = self.approve(self.prepared())
         with patch('django.utils.timezone.now', return_value=NOW + timedelta(days=11)):
-            self.assertTrue(any('older than 10 days' in reason for reason in approval_blockers(app)))
+            self.assertTrue(any('older than 3 days' in reason for reason in approval_blockers(app)))
 
     def test_regeneration_revokes_approval(self):
         app = self.approve(self.prepared())

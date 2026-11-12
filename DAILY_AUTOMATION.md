@@ -1,5 +1,51 @@
 # Daily discovery, supervised applications and email reports
 
+Discovery now accepts all locations returned by the configured sources. UAE
+jobs have first priority in the dashboard, draft preparation and daily report.
+The dashboard and report show UAE jobs and other locations separately; missing
+locations remain under review. Location filters are retained when paging.
+The existing 3-day/25% policy, experience checks and 20-slot daily limit apply
+across all locations together. Country-specific work authorization is never
+inferred from a UAE visa: international draft answers require clarification.
+This expands the existing feeds; it does not add new worldwide job sources.
+Automatic submission still requires an implemented submission integration;
+discovery and local draft preparation alone do not submit applications.
+
+Rejected vacancy audit records are deleted when their `observed_at` creation
+timestamp is more than 5 days old. Cleanup runs at the start of the daily
+job-processing task and hourly while the discovery worker is running. These
+processes must be running for automatic cleanup; `runserver` alone does not
+schedule it. Exactly 5-day-old rows remain until a later cleanup. Discovery
+summaries, jobs, applications and confirmation records are preserved.
+
+To preview or run cleanup immediately from the project directory:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py cleanup_rejected_vacancies --dry-run
+.\.venv\Scripts\python.exe manage.py cleanup_rejected_vacancies
+```
+
+Current qualification uses an inclusive rolling **72-hour (3-day)** publication
+window and **at least 25%** CV relevance. Unknown publication dates, incomplete
+descriptions, unverified experience and closed jobs still require review or are
+excluded. Historical discovery counts retain the policy used for that run.
+
+The dashboard and daily report show auto-applied and confirmed-submission counts
+for the selected candidate and Dubai date. Auto-applied is zero while no
+automatic submission adapter exists. Confirmed submissions require a recorded
+submission timestamp and confirmation reference or stored evidence. Preparing,
+approving or opening a draft does not count as a submission.
+
+The daily email also lists company names with a confirmed application count per
+company and the number of distinct companies. It uses the application company
+snapshot when available, otherwise the job company, and groups names ignoring
+case. The auto-applied company list remains empty while automatic submission is
+not configured. Counts cover the report's Dubai calendar date up to email
+preparation; an 08:00 report cannot include applications made later that day.
+The email separately summarizes companies with jobs awaiting clarification or
+draft approval, including a job count per company. These are outstanding review
+items at email preparation time, not applications submitted on the report date.
+
 This upgrade reuses the existing discovery adapters, PostgreSQL-backed discovery
 queue/session lock, insert-only job ingestion, CV scorer, draft generator and
 per-application human review. It adds a daily coordinator, private SMTP delivery,

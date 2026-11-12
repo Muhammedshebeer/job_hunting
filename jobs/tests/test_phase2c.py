@@ -62,7 +62,7 @@ class PipelineClassificationTests(SimpleTestCase):
 
     def test_strict_existing_filters_are_preserved(self):
         for changes, cv, expected in (({'title': 'Accountant'}, 'python django', 'rejected_role'),
-                    ({'location': 'Remote Europe'}, 'python django', 'rejected_location'),
+                    ({'location': 'Remote Europe'}, 'python django', 'qualified'),
                     ({'posted_at': (NOW - timedelta(days=11)).isoformat()}, 'python django', 'rejected_date'),
                     ({'posted_at': (NOW + timedelta(seconds=1)).isoformat()}, 'python django', 'rejected_date'),
                     ({'min_experience': 4, 'max_experience': 8}, 'python django', 'rejected_experience'),

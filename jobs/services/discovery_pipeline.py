@@ -15,12 +15,13 @@ from jobs.services.job_alerts import classify_alert, job_identity, parse_publica
 from jobs.services.matching import score_job
 from jobs.services.date_diagnostics import AMBIGUOUS_DATE_REASONS
 from jobs.services.discovery_lock import check_discovery_ownership
+from jobs.services.locations import known_location
 
 
 def filter_funnel(row, cv_text, now):
     """Read-only diagnostics; never changes qualification decisions."""
     counts = Counter({key: 0 for key in (
-        'stage.role_pass', 'stage.uae_pass', 'stage.date_pass', 'stage.experience_pass',
+        'stage.role_pass', 'stage.uae_pass', 'stage.location_pass', 'stage.date_pass', 'stage.experience_pass',
         'stage.cv_pass', 'stage.eligible', 'audit.role_matches', 'audit.uae_matches', 'audit.uae_role_matches',
         'audit.recent_matches', 'stage.role_unknown', 'stage.uae_unknown',
         'stage.date_unknown', 'stage.experience_unknown', 'stage.description_unknown')})
@@ -38,10 +39,11 @@ def filter_funnel(row, cv_text, now):
         counts['stage.role_unknown'] += int(not isinstance(title, str) or not title.strip())
         return counts
     counts['stage.role_pass'] += 1
-    if not uae:
+    if not known_location(location):
         counts['stage.uae_unknown'] += int(not isinstance(location, str) or not location.strip())
         return counts
-    counts['stage.uae_pass'] += 1
+    counts['stage.uae_pass'] += int(uae)
+    counts['stage.location_pass'] += 1
     if not recent:
         counts['stage.date_unknown'] += int(ambiguous_date or parse_publication(row.get('posted_at')) is None)
         return counts

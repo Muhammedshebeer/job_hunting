@@ -16,7 +16,7 @@ from jobs.services.job_alerts import parse_publication
 
 REJECTION_LABELS = {
     'rejected_role': 'Role is outside the approved developer roles.',
-    'rejected_location': 'Location does not meet the verified UAE-location rule.',
+    'rejected_location': 'Location did not meet the location policy used for this historical run.',
     'rejected_date': f'Publication date is outside the verified last-{policy.PUBLICATION_WINDOW_DAYS}-days window.',
     'rejected_experience': 'Experience requirements do not overlap 1–3 years.',
     'rejected_score': f'Verified-description CV relevance is below {policy.MIN_CV_SCORE}%.',
@@ -40,7 +40,8 @@ def rejection_label(code, values=None):
 def run_policy(run):
     # Historical snapshots retain their original policy; they are not requalified.
     return {'minimum_cv_score': run.totals.get('policy.minimum_cv_score', 75),
-            'publication_window_days': run.totals.get('policy.publication_window_days', 7)}
+            'publication_window_days': run.totals.get('policy.publication_window_days', 7),
+            'location_scope': run.totals.get('policy.location_scope', 'uae_only')}
 
 
 def summary_counts(counts):
@@ -71,7 +72,8 @@ def enqueue_discovery(profile, user):
 def _execute_run(run, owner):
     """Caller owns the global session lock for the full lifecycle."""
     policy_counts = {'policy.minimum_cv_score': policy.MIN_CV_SCORE,
-                     'policy.publication_window_days': policy.PUBLICATION_WINDOW_DAYS}
+                     'policy.publication_window_days': policy.PUBLICATION_WINDOW_DAYS,
+                     'policy.location_scope': 'worldwide_uae_first'}
     run.totals = dict(run.totals, **policy_counts)
     def touch():
         owner.check()
