@@ -1,17 +1,21 @@
 from datetime import timedelta
 from io import StringIO
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import Client, TestCase, override_settings
+from django.template.loader import render_to_string
 from django.urls import reverse
 
-from applications.models import Application
+from applications.models import Application, DailyReport
+from applications.services.budget import uae_day
 from applications.services.preparation import approval_blockers, draft_digest, job_assessment, prepare_draft, review_draft
+from applications.services.reports import report_context
+from applications.services.routes import authorized_adapter_for
 from applications.services.supervised import current_approval_issues, open_application, record_manual_submission
 from applications.tests.test_preparation import make_job, make_profile, RESOLUTION
 from jobs import qualification as policy
@@ -90,6 +94,59 @@ class SupervisedWorkflowTests(TestCase):
         open_application(app.pk, self.user, draft_digest(app))
         app.refresh_from_db()
         return app
+
+    def test_mock_platform_outcomes_are_reported_after_an_approved_handoff(self):
+        adapter = Mock()
+        adapter.submit.side_effect = [None, False, 'MOCK-RECEIPT-123']
+        app = prepare_draft(self.job.pk, self.profile.pk)
+        handoff = reverse('open_application', args=[app.pk])
+        record = reverse('record_submission', args=[app.pk])
+        report = DailyReport(candidate=self.profile, report_date=uae_day(), kind='daily')
+        self.assertIsNone(authorized_adapter_for(self.job))
+        self.assertRedirects(self.client.post(handoff, {'revision': draft_digest(app)}),
+                             reverse('application_detail', args=[app.pk]))
+        self.client.post(record, {'action': 'record_failure', 'failure_confirmed': 'on'})
+        self.assertFalse(app.audit_events.filter(action='manual_submission_failed').exists())
+        adapter.submit.assert_not_called()
+
+        app = self.approved()
+        response = self.client.post(handoff, {'revision': draft_digest(app)})
+        self.assertEqual(response.url, self.job.url)
+        self.assertIsNone(adapter.submit(response.url))
+        self.client.post(record, {'confirmed': 'on'})
+        app.refresh_from_db()
+        self.assertEqual(app.status, 'externally_opened')
+        self.assertIsNone(app.submitted_at)
+
+        self.assertIs(adapter.submit(response.url), False)
+        for _ in range(2):
+            self.client.post(record, {'action': 'record_failure', 'failure_confirmed': 'on'})
+        self.assertEqual(app.audit_events.filter(action='manual_submission_failed').count(), 1)
+        with self.assertLogs('applications.services.reports', level='WARNING') as logs:
+            context = report_context(report)
+        self.assertIn('Failed submission recorded', logs.output[0])
+        for extension in ('txt', 'html'):
+            body = render_to_string(f'applications/email/daily_report.{extension}', context)
+            self.assertIn('Failed submissions (1)', body)
+            self.assertIn('Unsupported for direct submission', body)
+            self.assertNotIn('MOCK-RECEIPT-123', body)
+        self.assertEqual(context['submission_counts']['confirmed_submissions'], 0)
+
+        DailyReport.objects.create(candidate=self.profile, report_date=uae_day(), status='sent', sent_at=NOW)
+        response = self.client.post(handoff, {'revision': draft_digest(app)})
+        receipt = adapter.submit(response.url)
+        self.client.post(record, {'confirmed': 'on', 'reference': receipt})
+        context = report_context(report)
+        self.assertEqual(context['submission_counts']['confirmed_submissions'], 1)
+        report.report_date += timedelta(days=1)
+        next_context = report_context(report)
+        self.assertEqual(next_context['submission_counts']['confirmed_submissions'], 0)
+        for extension in ('txt', 'html'):
+            body = render_to_string(f'applications/email/daily_report.{extension}', context)
+            self.assertIn('MOCK-RECEIPT-123', body)
+            next_body = render_to_string(f'applications/email/daily_report.{extension}', next_context)
+            self.assertIn('Earlier confirmations since the previous daily report was queued (1)', next_body)
+            self.assertIn('MOCK-RECEIPT-123', next_body)
 
     def test_opening_approved_application_redirects_to_stored_url_without_submission(self):
         app = self.approved()

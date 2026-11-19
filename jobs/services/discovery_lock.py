@@ -32,6 +32,10 @@ class Ownership:
 
 @contextmanager
 def discovery_execution_lock():
+    from django.conf import settings
+    from django.core.exceptions import ValidationError
+    if getattr(settings, 'DASHBOARD_READ_ONLY', False):
+        raise ValidationError('Discovery and report workers are disabled on the hosted dashboard.')
     existing = _current.get()
     if existing is not None:
         existing.check()

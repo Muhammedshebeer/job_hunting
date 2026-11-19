@@ -9,6 +9,8 @@ from applications.services.preparation import approval_blockers, draft_digest, s
 from jobs.models import Job
 from profiles.models import CandidateProfile
 
+MANUAL_SUBMISSION_FAILED = 'manual_submission_failed'
+
 
 def current_approval_issues(app):
     issues = approval_blockers(app)
@@ -106,6 +108,20 @@ def record_manual_submission(application_id, user, *, confirmed, reference='', e
     if issues:
         raise ValidationError(issues)
     return app
+
+
+@transaction.atomic
+def record_manual_failure(application_id, user, *, confirmed):
+    if not user.is_active or not user.is_staff or not confirmed:
+        raise ValidationError('Explicit staff confirmation of the platform rejection is required.')
+    app = _locked_application(application_id)
+    if (app.status != 'externally_opened' or not app.externally_opened_at
+            or not app.approved_at or not app.approved_by_id
+            or app.approval_digest != draft_digest(app)):
+        raise ValidationError('A matching approved browser handoff is required.')
+    last_event = app.audit_events.first()
+    if not last_event or last_event.action != MANUAL_SUBMISSION_FAILED:
+        ApplicationEvent.objects.create(application=app, actor=user, action=MANUAL_SUBMISSION_FAILED)
 
 
 def revalidate_approvals(*, dry_run=True, profile_id=None):

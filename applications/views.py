@@ -1,4 +1,5 @@
 from functools import wraps
+from django.conf import settings
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -15,7 +16,7 @@ from applications.services.preparation import approval_blockers, draft_digest, j
 from jobs.models import Job, DiscoveryRun
 from jobs.services.discovery_runs import enqueue_discovery, rejection_label, summary_counts, run_policy
 from profiles.models import CandidateProfile
-from applications.services.supervised import current_approval_issues, open_application, record_manual_submission
+from applications.services.supervised import current_approval_issues, open_application, record_manual_failure, record_manual_submission
 from applications.services.reports import workflow_rows, queue_report, submission_counts
 from jobs.services.locations import prioritize_jobs, location_group, LOCATION_GROUPS
 
@@ -118,8 +119,8 @@ def ready_applications(profile):
         return []
     rows = []
     for app in Application.objects.filter(candidate=profile, status__in=('approved', 'externally_opened')).select_related('job', 'candidate'):
-        if not current_approval_issues(app):
-            app.current_digest = draft_digest(app)
+        if getattr(settings, 'DASHBOARD_READ_ONLY', False) or not current_approval_issues(app):
+            app.current_digest = '' if getattr(settings, 'DASHBOARD_READ_ONLY', False) else draft_digest(app)
             rows.append(app)
     return rows
 
@@ -226,6 +227,10 @@ def prepare(request, pk):
 @staff_required
 def application_detail(request, pk):
     app = get_object_or_404(Application.objects.select_related('job', 'candidate', 'approved_by'), pk=pk)
+    if getattr(settings, 'DASHBOARD_READ_ONLY', False):
+        return render(request, 'applications/application_detail.html', {'application': app,
+            'assessment': job_assessment(app.job, app.candidate), 'blockers': [],
+            'can_open': False, 'can_record_submission': False})
     if request.method not in ('GET', 'POST'):
         from django.http import HttpResponseNotAllowed
         return HttpResponseNotAllowed(['GET', 'POST'])
@@ -271,6 +276,14 @@ def open_approved_application(request, pk):
 @require_POST
 def record_submission(request, pk):
     app = get_object_or_404(Application, pk=pk)
+    if request.POST.get('action') == 'record_failure':
+        try:
+            record_manual_failure(pk, request.user, confirmed=request.POST.get('failure_confirmed') == 'on')
+        except ValidationError as exc:
+            messages.error(request, ' '.join(exc.messages))
+        else:
+            messages.success(request, 'The platform rejection was recorded.')
+        return redirect('application_detail', pk=pk)
     form = ManualSubmissionForm(request.POST, request.FILES)
     if form.is_valid():
         try:
@@ -287,7 +300,7 @@ def record_submission(request, pk):
         'form': ReviewForm(application=app, initial={'revision': draft_digest(app)}),
         'blockers': approval_blockers(app), 'assessment': job_assessment(app.job, app.candidate),
         'can_open': not issues, 'current_digest': draft_digest(app), 'manual_submission_form': form,
-        'can_record_submission': app.status == 'externally_opened'})
+        'can_record_submission': not issues and app.status == 'externally_opened'})
 
 
 @staff_required

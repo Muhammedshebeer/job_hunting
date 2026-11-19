@@ -4,6 +4,11 @@ This is a **runnable starter**, not a fully connected auto-apply service. It sup
 
 ## Windows PowerShell setup
 
+For the Free Render **read-only dashboard**, shared PostgreSQL migration,
+backup/verification and Windows task cutover, use
+[RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md). No deployment or data migration
+runs automatically from the supplied build/start configuration.
+
 Discovery accepts all locations from the configured feeds, with UAE jobs first.
 The dashboard and daily report separate UAE jobs from other locations. Matching
 uses the same 3-day/25% criteria worldwide; automatic local draft preparation

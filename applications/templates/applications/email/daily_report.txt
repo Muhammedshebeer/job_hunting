@@ -1,5 +1,5 @@
 {% autoescape off %}UAE Job Agent {% if test_email %}TEST EMAIL{% endif %} - {{ report.report_date }} (Asia/Dubai)
-No automatic submission integration is enabled.
+Direct submission: disabled. Approved applications use the platform form.
 Auto-applied on {{ submission_counts.day }} (Asia/Dubai): {{ submission_counts.auto_applied }}
 Confirmed submissions on this date: {{ submission_counts.confirmed_submissions }}
 Auto-applied companies:
@@ -24,7 +24,8 @@ Worldwide discovery, UAE first. Minimum {{ policy.minimum_cv_score }}% CV match,
 {% for title, rows in sections %}
 {{ title }} ({{ rows|length }})
 {% for row in rows %}{{ row.job.company }} | {{ row.job.title }} | {{ row.job.location }}
-Publication: {{ row.job.posted_at|date:'c'|default:'Unverified' }} | CV score: {{ row.score }}% | Source: {{ row.job.source }} | Status: {{ row.status }}
+Publication: {{ row.job.posted_at|date:'c'|default:'Unverified' }} | CV score: {{ row.score }}% | Source: {{ row.job.source }} | Status: {{ row.status }}{% for reason in row.submission_reasons %}
+- {{ reason }}{% endfor %}
 {{ row.url|default:'Application URL unverified' }}
 {% if row.category == 'submitted' %}Submission recorded: {{ row.app.submitted_at|date:'c' }} | Confirmation: {{ row.app.confirmation_reference|default:'Private evidence stored' }}{% endif %}
 {% empty %}None.

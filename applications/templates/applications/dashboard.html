@@ -1,8 +1,8 @@
 {% extends 'applications/base.html' %}{% block content %}
 <div class="page-heading"><div><p class="eyebrow">DISCOVER · PREPARE · REVIEW</p><h1>Your next role,<br><span>with every detail checked.</span></h1>
 <p class="subtitle">Developer opportunities worldwide, with UAE jobs first. Review the evidence before moving forward.</p></div>
-<div class="workspace-status"><span class="status-dot"></span> Preparation mode <p>No automatic submissions</p></div></div>
-{% if not profile %}<div class="notice warning">No active candidate profile is available. <a href="/admin/profiles/candidateprofile/">Set up your existing profile in admin</a> to calculate relevance and prepare drafts.</div>{% endif %}
+<div class="workspace-status"><span class="status-dot"></span> {% if dashboard_read_only %}Read-only mode{% else %}Preparation mode{% endif %} <p>No automatic submissions</p></div></div>
+{% if not profile %}<div class="notice warning">No active candidate profile is available. {% if dashboard_read_only %}Set up your profile on your Windows PC{% else %}<a href="/admin/profiles/candidateprofile/">Set up your existing profile in admin</a>{% endif %} to calculate relevance and prepare drafts.</div>{% endif %}
 <section class="metrics" aria-label="Job summary">
 <div><span>Discovered jobs</span><strong>{{ counts.all }}</strong><small>In this view</small></div>
 <div><span>Eligible</span><strong>{{ counts.eligible }}</strong><small>All checks passed</small></div>

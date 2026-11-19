@@ -24,6 +24,12 @@ def application_category(job, profile, app=None):
     assessment = job_assessment(job, profile)
     if assessment['status'] == 'rejected':
         return 'excluded'
+    from django.conf import settings
+    if getattr(settings, 'DASHBOARD_READ_ONLY', False):
+        # Display stored workflow state; Render never verifies local CV bytes.
+        if assessment['status'] != 'eligible' or app and app.status in ('review_required', 'needs_review', 'blocked'):
+            return 'needs_review'
+        return 'manual_apply'
     if not cv_file_digest(profile):
         return 'needs_review'
     if assessment['status'] != 'eligible' or app and approval_blockers(app):
@@ -38,6 +44,11 @@ def confirmed_submission(app):
         return False
     if app.confirmation_reference.strip():
         return True
+    from django.conf import settings
+    if getattr(settings, 'DASHBOARD_READ_ONLY', False):
+        # A recorded private file reference is display evidence, not a hosted
+        # file check or permission to submit. No media files are deployed.
+        return bool(app.confirmation_evidence.name)
     try:
         return bool(app.confirmation_evidence and app.confirmation_evidence.storage.exists(app.confirmation_evidence.name))
     except OSError:

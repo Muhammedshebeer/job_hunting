@@ -3,3 +3,5 @@ psycopg[binary]>=3.2
 python-dotenv>=1.0
 PyMuPDF>=1.25
 keyring>=25,<26
+gunicorn>=23,<24; platform_system != "Windows"
+whitenoise[brotli]>=6.9,<7

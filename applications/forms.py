@@ -16,7 +16,7 @@ def validate_confirmation_file(value):
 
 
 class ManualSubmissionForm(forms.Form):
-    confirmed = forms.BooleanField(label='I personally completed this submission and verified the attached evidence or confirmation reference. Opening the application alone is not a submission.')
+    confirmed = forms.BooleanField(label='I submitted this application and verified that the employer or platform issued this confirmation for this vacancy.')
     reference = forms.CharField(required=False, max_length=500, label='Confirmation reference')
     evidence = forms.FileField(required=False, validators=[validate_confirmation_file], label='Confirmation evidence (PDF, PNG, JPEG; max 5 MB)')
 

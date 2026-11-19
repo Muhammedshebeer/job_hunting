@@ -5,18 +5,21 @@ from django.db import transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
 from email.utils import make_msgid
+import logging
 
 from applications.email_backend import REPORT_RECIPIENT, load_delivery_config
-from applications.models import Application, DailyReport
+from applications.models import Application, ApplicationEvent, DailyReport
 from applications.services.budget import uae_day, day_bounds
-from applications.services.preparation import job_assessment, public_application_url
-from applications.services.routes import application_category
-from applications.services.supervised import current_approval_issues
+from applications.services.preparation import approval_blockers, cv_file_digest, job_assessment, public_application_url
+from applications.services.routes import application_category, authorized_adapter_for
+from applications.services.supervised import MANUAL_SUBMISSION_FAILED, current_approval_issues
 from jobs.models import DiscoveryRun, Job
 from jobs.services.discovery_lock import discovery_execution_lock, check_discovery_ownership
 from jobs.services.discovery_runs import summary_counts
 from jobs import qualification as policy
 from jobs.services.locations import prioritize_jobs, location_group, LOCATION_GROUPS
+
+logger = logging.getLogger(__name__)
 
 
 def submission_counts(profile, day=None):
@@ -56,7 +59,8 @@ def workflow_rows(profile):
             'qualified': assessment['status'] == 'eligible',
             'url': public_application_url(job),
             'status': app.get_status_display() if app else assessment['status'].replace('_', ' ').title(),
-            'approved': bool(app and app.status in ('approved', 'externally_opened') and not current_approval_issues(app))})
+            'approved': bool(app and app.status in ('approved', 'externally_opened') and (
+                getattr(settings, 'DASHBOARD_READ_ONLY', False) or not current_approval_issues(app)))})
     return rows
 
 
@@ -68,6 +72,42 @@ def latest_discovery_snapshot(profile):
 
 def report_context(report):
     rows = workflow_rows(report.candidate)
+    start, end = day_bounds(report.report_date)
+    previous_report = DailyReport.objects.filter(candidate=report.candidate, kind='daily',
+        status='sent', report_date__lt=report.report_date).order_by('-report_date').first()
+    # Overlap the previous render window so receipts recorded during SMTP delivery
+    # are visible in the next email. Keep the Dubai-day counters separate.
+    carryover_start = previous_report.queued_at if previous_report else start
+    failed_ids = set(ApplicationEvent.objects.filter(
+        application__candidate=report.candidate, action=MANUAL_SUBMISSION_FAILED,
+        created_at__gte=min(start, carryover_start), created_at__lt=end,
+    ).values_list('application_id', flat=True))
+    shortlisted = [row for row in rows if row['category'] in ('needs_review', 'manual_apply', 'auto_apply', 'failed')]
+    has_cv = bool(cv_file_digest(report.candidate))
+    for row in shortlisted:
+        job, app = row['job'], row['app']
+        category = row['category']
+        reasons = []
+        if category == 'failed' or (app and app.pk in failed_ids):
+            reasons.append('Failed submission recorded.')
+        if category == 'needs_review':
+            reasons.extend(approval_blockers(app) if app else job_assessment(job, report.candidate)['reasons'])
+            if not has_cv:
+                reasons.append('The uploaded CV is missing or unreadable.')
+            if app and app.status in ('approved', 'externally_opened'):
+                reasons.extend(current_approval_issues(app))
+            if app and app.status == 'submitted':
+                reasons.append('Reliable submission confirmation is missing from the existing record.')
+        if category in ('manual_apply', 'auto_apply') and not row['approved']:
+            reasons.append('Awaiting approval of the draft.' if app else 'Draft preparation and approval required.')
+        if row['approved']:
+            reasons.append('Awaiting employer or platform confirmation.' if app.status == 'externally_opened'
+                           else 'Approved for browser handoff.')
+        if authorized_adapter_for(job) is None:
+            reasons.append('Unsupported for direct submission. Use the platform form after approval.')
+        row['submission_reasons'] = list(dict.fromkeys(reasons))
+        logger.warning('Submission pending job_id=%s application_id=%s reasons=%r',
+                       job.pk, app.pk if app else None, row['submission_reasons'])
     review_companies = {}
     for row in rows:
         if row['category'] != 'needs_review' and not (
@@ -76,9 +116,11 @@ def report_context(report):
         name = row['job'].company.strip() or 'Company unverified'
         entry = review_companies.setdefault(name.casefold(), {'name': name, 'count': 0})
         entry['count'] += 1
-    start, end = day_bounds(report.report_date)
     success = [r for r in rows if r['category'] == 'submitted' and start <= r['app'].submitted_at < end]
-    failed = [r for r in rows if r['category'] == 'failed' and start <= r['app'].updated_at < end]
+    carryover = [r for r in rows if r['category'] == 'submitted'
+                 and carryover_start <= r['app'].submitted_at < start]
+    failed = [r for r in rows if r['app'] and (
+        r['app'].pk in failed_ids or r['category'] == 'failed' and start <= r['app'].updated_at < end)]
     runs = DiscoveryRun.objects.filter(candidate=report.candidate)
     latest = report.discovery_run or latest_discovery_snapshot(report.candidate)
     if latest is None:
@@ -97,6 +139,7 @@ def report_context(report):
         note += f' The most recent discovery attempt #{attempt.pk} failed; its partial counts are excluded from the selected completed snapshot.'
     return {'report': report, 'sections': [
         ('Successfully submitted applications', success),
+        ('Earlier confirmations since the previous daily report was queued', carryover),
         ('Approved applications awaiting submission (authorized integration)', [r for r in rows if r['approved'] and r['category'] == 'auto_apply']),
         ('Manual applications required', [r for r in rows if r['category'] == 'manual_apply' and r['approved']]),
         ('Pending approval', [r for r in rows if r['category'] in ('manual_apply', 'auto_apply') and not r['approved']]),
